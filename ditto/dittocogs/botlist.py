@@ -5,23 +5,12 @@ from discord.ext import commands, tasks
 import discord
 from discord import app_commands
 from utils.checks import check_admin
-import discordlists
-from botlistpy import BotClient
-from botlistpy.helpers import AutoPoster
 
 client_id = 1000125868938633297
-api_token = {os.environ['BOTLISTME']}
-botlist_client = BotClient(client_id,api_token)
 
 class BotList(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.api = discordlists.Client(self.bot)  # Create a Client instance
-        self.api.set_auth("discordz.gg", f"{os.environ['DISCORDZGG']}") # Set authorisation token for a bot list
-        self.api.set_auth("fateslist.xyz", f"{os.environ['FATESLIST']}")
-        self.api.set_auth("top.gg", f"{os.environ['TOPGG']}") # Set authorisation token for a bot list
-        self.api.start_loop()  # Posts the server count automatically every 30 minutes
-        poster = AutoPoster(botlist_client,bot,interval=360)
         
 
     async def _guild_count(self) -> Optional[int]:
@@ -87,14 +76,6 @@ class BotList(commands.Cog):
                     "SUCCESS: Successfully posted to BotBlock. Should be propogating to all lists now"
                 )
                 return True, response
-
-    @tasks.loop(seconds=60 * 45)
-    async def botblock(self):
-        await self.bot.wait_until_clusters_ready()
-        await self._botblock_poster()
-        servercount = self._guild_count()
-        shardcount = self._shard_count()
-        await botlist_client.setStats(servercount, shardcount)
 
     @check_admin()
     @commands.hybrid_group(name="botblock")

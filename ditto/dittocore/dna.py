@@ -16,7 +16,6 @@ import aioredis
 import asyncpg
 import discord
 import dittocogs
-import pybrake
 import ujson
 import uvloop
 from discord.ext import commands
@@ -32,13 +31,6 @@ from dittocore.redis_handler import RedisHandler
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 DATABASE_URL = os.environ["DATABASE_URL"]
-
-notifier = pybrake.Notifier(
-        project_id=your-project-id,
-        project_key="your-airbrake-key-here",
-        environment="production",
-    )
-
 
 class Ditto(commands.AutoShardedBot):
     def __init__(self, cluster_info, *args, **kwargs):
@@ -68,10 +60,7 @@ class Ditto(commands.AutoShardedBot):
         )
         self.misc = DittoMisc(self)
         self.commondb = CommonDB(self)
-        airbrake_handler = pybrake.LoggingHandler(notifier=notifier, level=logging.WARN)
         self.logger = logging.getLogger("dittobot")
-        self.logger.addHandler(airbrake_handler)
-        self.notifier = notifier
         self.db = [None, None, None]
         self.started_at = time.monotonic()
         self.pokemon_names = {}
@@ -144,38 +133,27 @@ class Ditto(commands.AutoShardedBot):
         )
 
         if not self.owner:
-            self.owner = await self.fetch_user(790722073248661525)
+            self.owner = await self.fetch_user(os.environ["OWNER"])
         if not self.official_server:
-            self.official_server = await self.fetch_guild(999953429751414784)
+            self.official_server = await self.fetch_guild(os.environ["OFFICIAL_SERVER"])
         if not self.emote_server:
-            self.emote_server = await self.fetch_guild(878766711598366741)
+            self.emote_server = await self.fetch_guild(os.environ["EMOTE_SERVER"])
 
     async def before_identify_hook(self, shard_id: int, *, initial: bool = False):
         self.logger.info("Before identify hook fired.  Requesting gateway queue")
 
-        try:
-            async with aiohttp.ClientSession() as session:
-                resp = await session.get("http://178.28.0.12:5000")
-                if resp.status != 200:
-                    self.logger.error(
-                        f"Gateway queue returned non-200 status code: {resp.status}"
-                    )
-        except aiohttp.ClientConnectionError:
-            self.logger.error("Gateway queue unreachable, please ensure it is running")
-            if not initial:
-                await asyncio.sleep(5)
-
     async def on_shard_connect(self, shard_id):
         self.logger.info("On shard connect called")
-        if not self.initial_launch:
-            with contextlib.suppress(discord.HTTPException):
-                embed = discord.Embed(
-                    title=f"Shard {shard_id} reconnected to gateway",
-                    color=0x008800,
-                )
-                await self.get_partial_messageable(1005561909870870529).send(
-                    embed=embed
-                )
+        
+        #if not self.initial_launch:
+        #    with contextlib.suppress(discord.HTTPException):
+        #        embed = discord.Embed(
+        #            title=f"Shard {shard_id} reconnected to gateway",
+        #            color=0x008800,
+        #        )
+        #        await self.get_partial_messageable(1005561909870870529).send(
+        #            embed=embed
+        #        )
 
     async def on_ready(self):
         self.logger.info(
@@ -294,7 +272,7 @@ class Ditto(commands.AutoShardedBot):
             init=self.init_pg,
         )
         self.db[2] = await aioredis.create_pool(
-            "redis://178.28.0.13", minsize=10, maxsize=20
+            "redis://127.0.0.1",
         )
         # self.oxidb = await asyncpg.create_pool(
         #    OXI_DATABASE_URL, min_size=2, max_size=10, command_timeout=10, init=self.init
@@ -344,120 +322,7 @@ class Ditto(commands.AutoShardedBot):
         - "Crystal Patreon"
         - "Elite Patreon"
         """
-        expired = await self.redis_manager.redis.execute("GET", "patreonreset")
-        if expired is None or time.time() > float(expired):
-            await self.redis_manager.redis.execute(
-                "SET", "patreonreset", time.time() + (60 * 15)
-            )
-            try:
-                data = await self._fetch_patreons()
-            except RuntimeError:
-                return None
-            # Expand the dict, since redis doesn't like dicts
-            result = []
-            for k, v in data.items():
-                result += [k, v]
-            await self.redis_manager.redis.execute("DEL", "patreontier")
-            await self.redis_manager.redis.execute("HMSET", "patreontier", *result)
-        tier = await self.redis_manager.redis.execute("HGET", "patreontier", user_id)
-        # Don't return a string None
-        return None if tier is None else str(tier, "utf-8")
-
-    async def _fetch_patreons(self):
-        """
-        Fetches the patreon data.
-
-        Returns a dict mapping {userid (int): tier (str)}
-        WARNING: This API is evil, modify this code at your own risk!
-        """
-        headers = {"Authorization": f"Bearer {os.environ['PATREON_TOKEN']}"}
-        api_url = ""
-        users_tiers = []
-        members = []
-        RED = "{LARGE RED CIRCLE}"
-        async with aiohttp.ClientSession() as session:
-            # Loop through the pages returned from the API, stop at 25 to prevent an infinte loop
-            for _ in range(25):
-                async with session.get(api_url, headers=headers) as r:
-                    if r.status != 200:
-                        data = await r.text()
-                        self.logger.warning(
-                            f"Got a non 200 status code from the patreon API.{RED}\n\n{data}\n"
-                        )
-                        await self.get_partial_messageable(1005563356985442415).send(
-                            f"Got a `{r.status}` status code from the patreon API."
-                        )
-                        raise RuntimeError(
-                            "Got a non 200 status code from the patreon API."
-                        )
-                    data = await r.json()
-                # Two sets of data are returned from the API, "data" and "included".
-                # "data" is of type patreon.Member and allows us to check their patreon status and get their patreon.User.id.
-                # "included" is anything after "?include=" in the api url.
-                # Currently it includes the objects for any patreon.User and patreon.Tier that shows up in "data".
-                # Discord UIDs can be acquired from patreon.User and display names can be acquired from patreon.Tier
-                members += data["data"]
-                users_tiers += data["included"]
-                # If there are no more links, we have reached the last page, so break out
-                if "links" not in data:
-                    break
-                api_url = data["links"]["next"]
-
-        # Mapping of {patreon user id: patreon tier id}
-        active_patrons = {}
-        for member in members:
-            if "attributes" not in member:
-                continue
-            if "patron_status" not in member["attributes"]:
-                continue
-            # Member is either an old patreon, or their payment was declined
-            if member["attributes"]["patron_status"] != "active_patron":
-                continue
-            # Member is subscribed to patreon, but did not select a tier, so they do not get a role or explicit perks
-            if not member["relationships"]["currently_entitled_tiers"]["data"]:
-                continue
-            active_patrons[member["relationships"]["user"]["data"]["id"]] = member[
-                "relationships"
-            ]["currently_entitled_tiers"]["data"][0]["id"]
-
-        # Mapping of {discord user id: patreon tier id}
-        userids = {}
-        # Mapping of {patreon tier id: tier name}
-        tiers = {}
-        # Since data from "included" can be either a patreon.User or patreon.Tier, both are handled in this loop
-        for item in users_tiers:
-            # Item is a patreon.Tier, get its {id: name}
-            if item["type"] == "tier":
-                tiers[item["id"]] = item["attributes"]["title"]
-                continue
-            # Item is a patreon.User, get its discord id & cross reference the tier id from the equivalent patreon.Member
-            if item["id"] not in active_patrons:
-                continue
-            if "attributes" not in item:
-                continue
-            if "social_connections" not in item["attributes"]:
-                continue
-            if "discord" not in item["attributes"]["social_connections"]:
-                continue
-            if not item["attributes"]["social_connections"]["discord"]:
-                continue
-            if "user_id" not in item["attributes"]["social_connections"]["discord"]:
-                continue
-            userids[
-                int(item["attributes"]["social_connections"]["discord"]["user_id"])
-            ] = active_patrons[item["id"]]
-
-        # Mapping of {discord user id: tier name}
-        result = {uid: tiers[userids[uid]] for uid in userids}
-        # Overrides
-        async with self.db[0].acquire() as pconn:
-            overrides = await pconn.fetch(
-                "SELECT u_id, patreon_override FROM users WHERE patreon_override IS NOT NULL"
-            )
-        for override in overrides:
-            result[override["u_id"]] = override["patreon_override"]
-
-        return result
+        return "Elite Patreon" # We're all elite
 
     def premium_server(self, guild_id: int):
         return guild_id in {

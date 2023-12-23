@@ -9,8 +9,6 @@ from discord.ui import Modal, TextInput
 import discord
 from discord.ext import commands
 from pokemon_utils.utils import evolve
-from utils.checks import check_mod
-from collections import defaultdict
 
 GUILD_DEFAULT = {
     "prefix": ";",
@@ -51,153 +49,14 @@ class Feedback(discord.ui.Modal, title='Feedback'):
             await interaction.client.get_partial_messageable(1004310910313181325).send(embed=embed)
 
 
-class StaffApp(discord.ui.Modal, title='NominationForm'):
-
-    username = discord.ui.TextInput(
-        label='Discord Tag/Name with #0000 at the end',
-        placeholder='ex. User#1231',
-        max_length=100,
-        required=True
-    )
-    second_choice = discord.ui.TextInput(
-        label='2nd Choice (Discord Tag/Name)',
-        placeholder='ex. User#1231',
-        max_length=20,
-        required=False
-    )
-    reasoning = discord.ui.TextInput(
-        label='Brief Reasoning',
-        style=discord.TextStyle.long,
-        placeholder='Briefly explain your nomination',
-        required=True,
-        max_length=3000,
-    )
-        
-    async def interaction_check(self, interaction):
-        async with interaction.client.db[0].acquire() as pconn:
-            submission_check = await pconn.fetchval("SELECT submitter from staff_apps where u_id = $1", interaction.user.id)
-            if submission_check:
-                return await interaction.response.send_message('You have filled this form already-quit trying to cheat the system')
-
-
-
-    async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f'Submitted-Thank you for your help selecting the best new staff possible!', ephemeral=True)
-        if self.second_choice.value is None:
-            self.second_choice.value = ''
-        embed = discord.Embed(
-                title=f"{interaction.user.id}-{interaction.user.name}", description=f"`Username:`\n{self.username.value}\n\n`Reasoning:`\n{self.reasoning.value}\n\n`Second Choice`:\n{self.second_choice.value}", color=0xFF0060)
-        await interaction.client.get_partial_messageable(1032471909817929768).send(embed=embed)
-        async with interaction.client.db[0].acquire() as pconn:
-            try:
-                await pconn.execute('INSERT INTO staff_apps (nominated, second_choice, u_id) VALUES ($1, $2, $3)', self.username.value, self.second_choice.value, interaction.user.id)
-            except Exception as e:
-                self.bot.logger.exception("Error in ON_SUBMIT WTF", exc_info=e)
-
-
-class AppView(discord.ui.View):
-    def __init__(self, ctx):
-        super().__init__(timeout=160)
-        self.ctx = ctx
-        self.submitted = []
-    
-
-    async def interaction_check(self, interaction):
-        if interaction.user.id != self.ctx.author.id:
-            await interaction.response.send_message(
-            content="You are not allowed to interact with this button.",
-            ephemeral=True,
-        )
-            return False
-        return True
-
-    @discord.ui.button(emoji="<:minka_dittohug:1004785919066378330>", style=discord.ButtonStyle.blurple, row=1, label="Click here to Open Form")
-    async def staff_app_button(self, interaction, button):
-        await interaction.response.send_modal(StaffApp())
-        await interaction.message.edit(view=None)
-
-class NominateView(discord.ui.View):
-    def __init__(self, ctx):
-        super().__init__(timeout=160)
-        self.ctx = ctx
-
-
-    async def interaction_check(self, interaction):
-        if interaction.user.id != self.ctx.author.id:
-            await interaction.response.send_message(
-            content="You are not allowed to interact with this button.",
-            ephemeral=True,
-        )
-            return False
-        return True
-
-    @discord.ui.button(emoji="<a:emoji_29:834080999024885821>", style=discord.ButtonStyle.green, row=1, label="Continue")
-    async def continue_button(self, interaction, button):
-            """Community Staff nomination rules"""
-            desc = ''
-            desc += '\n\n> In the past, our staff team has generally added new members to the team via the community putting in applicatons,'
-            desc += '\n> and then narrowing down the applicants after a set time peroid has gone by via an internal series of voting amongst staff'
-            desc += '\n > until we were down to just a few remaining applications that the majority of staff thought would be a good a fit.'
-            desc += '\n\n**This time around we will be doing things more with the community in mind, in order to provide the best experience for everyone that we can!**'
-
-            desc += '\n||Click the button below on this message and the User Nomination form will pop up-input the information requested and submit.||'
-            embed = discord.Embed(title="DittoBOTS 1st Community Staff Nomination", color=0xFF0060, description=desc)
-            await interaction.response.edit_message(embed=embed, view=AppView(self.ctx))
-   
-
-            #async def staff_app_callback(interaction):
-            #    await interaction.response.send_modal(())
-            #await interaction.response.edit_message(embed=embed, view=self.v)
-
-    @discord.ui.button(emoji="<a:minus:1008763512652304555>", style=discord.ButtonStyle.red, row=1, label="Cancel")
-    async def cancel_button(self, interaction, button):
-      desc = 'You have chosen to cancel.'
-      embed = discord.Embed(title="Cancelled", color=0xFF0060, description=desc)
-      await interaction.response.edit_message(embed=embed, view=None)
-
 
 
 class Misc(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        # This might be better in Redis, but eh if someone wants to get .01% better rates by spam switching channels, let them
         self.user_cache = defaultdict(int)
-        self.submitted = []
-        self.nominations = []
 
-
-    @check_mod()
-    @commands.hybrid_command()
-    async def nominate(self, ctx):
-        if ctx.guild.id != 999953429751414784:
-            await ctx.send(f"You can only use this command in the {self.bot.user.name} Official Server.")
-            return
-        async with ctx.bot.db[0].acquire() as pconn:
-            submission_check = await pconn.fetch("SELECT * from staff_apps where u_id = $1", ctx.author.id)
-            if submission_check:
-                return await ctx.send('You have filled this form already-')
-        accepted_roles = [1006436978021126224,1006436699624198224,1006436577473466440,1006436459147952160,1006436366135087164,1006436226305359932,1006435988035346462,1006435776562724914,1006432180613943378,1006435567325675583,1006431947800707153,1004609198048411659,1004609075889311804,1004342763803914261]
-        if set(accepted_roles) & set([x.id for x in ctx.author.roles]):
-            # role check and first page of of the nomination process
-            desc = '**__Please cornfirm via the buttons  below__**:'
-            desc += '\n<:bar1:871849386689318992><:bar5:871849386500558858><:bar5:871849386500558858><:bar5:871849386500558858><:bar5:871849386500558858><:bar5:871849386500558858><:bar5:871849386500558858><:bar5:871849386500558858><:bar6:871849386257301555>\n'
-            desc += '\n__**Some things to consider before nominating anyone**__'
-            desc += '\n> 1. **Any form of bug or alt account abuse to gain any advantage** *will result in all involved parties being banned until a much later date.*'
-            desc += '\n> 2. **__Staff team will still have the final say,__ and still must approve of the communiys picks regardless, but this is simply to ensure someone totally unfit is not chosen as a prank/meme.**'           
-            desc += '\n> 3. **Bribing, blackmailing, or otherwise presuading or manipulating other users can and will result in a permanent ban.**'
-            desc += '\n> 4. **Only submit one nomination form, submitting multiple will just potentially make all of them from your userID get ignored**'
-            embed = discord.Embed(title="Rules for Nominating", color=0xFF0060, description=desc)
-
-            await ctx.send(embed=embed, view=NominateView(ctx))
-
-            
-        else:
-            await ctx.send("yeah-you do not have the right rank roles in the server to complete this action, sorry.")
-        
-
-
-    async def on_timeout(self, interaction):
-        with contextlib.suppress(discord.NotFound):
-            await interaction.response.edit_message(embed=embed, view=None)  
 
     @app_commands.command()
     async def feedback(self, interaction: discord.Interaction):
@@ -447,7 +306,6 @@ class Misc(commands.Cog):
             concurrent.futures._base.TimeoutError,
             commands.CheckFailure,
             commands.DisabledCommand,
-            commands.MaxConcurrencyReached,
         )
         if isinstance(error, ignored_errors):
             return

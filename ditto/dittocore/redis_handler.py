@@ -7,6 +7,7 @@ import traceback
 from contextlib import redirect_stdout, suppress
 from datetime import datetime
 from uuid import uuid4
+import json
 
 import aiohttp
 import discord
@@ -39,6 +40,32 @@ class RedisHandler:
                 payload = await channel.get_json(encoding="utf-8")
             except orjson.JSONDecodeError:
                 continue  # not a valid JSON message
+
+            if payload.get("diag"):
+                # Diag payload
+                if payload.get("id") != self.cluster["id"]:
+                    continue
+                shard_data = []
+                shard_metrics = {}
+
+                for g in self.bot.guilds:
+                    if g.shard_id is None:
+                        raise RuntimeError("shard_id is none when sending diag")
+                    if not shard_metrics.get(g.shard_id):
+                        shard_metrics[g.shard_id] = [0, 0]
+                    shard_metrics[g.shard_id][0] += 1
+                    shard_metrics[g.shard_id][1] += g.member_count or 0
+
+                for id, shard in self.bot.shards.items():
+                    shard_data.append({
+                        "shard_id": shard.id,
+                        "latency": shard.latency,
+                        "up": not shard.is_closed(),
+                        "guilds": shard_metrics[id][0],
+                        "users": shard_metrics[id][1],
+                    })
+                payload = {"scope": "launcher", "action": "diag", "output": json.dumps({"Nonce": payload["nonce"], "Data": shard_data})}
+                await self.redis.execute("PUBLISH", "dittobot_clusters", orjson.dumps(payload))
 
             if payload.get("scope") != "bot":
                 continue

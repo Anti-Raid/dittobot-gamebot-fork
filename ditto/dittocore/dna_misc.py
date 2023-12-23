@@ -1,6 +1,6 @@
 import random
 import traceback
-
+import os
 import discord
 
 
@@ -111,6 +111,6 @@ class DittoMisc:
                     f"Path       {ctx.command.qualified_name}\n"
                     f"Args       {ctx.args}\n\n"
                 ) + page
-            await ctx.bot.get_partial_messageable(1004572745415266395).send(
+            await ctx.bot.get_partial_messageable(os.environ["LOGS"]).send(
                 f"```py\n{page}\n```"
             )

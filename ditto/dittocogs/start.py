@@ -1,7 +1,7 @@
 import contextlib
 import random
 import string
-
+import os
 import discord
 import numpy as np
 from discord.ext import commands
@@ -105,16 +105,11 @@ class Start(commands.Cog):
         **Now begin your adventure!**"""
         await ctx.send(embed=new_embed)
         message = (
-            "Don't hesitate to [Join the Official Server](https://discord.gg/ditto) for upcoming Events/Tournaments\n"
-            "Know what's epic? If you haven't, add DittoBOT to your server or recommend DittoBOT to your friends server and spread the fun!!"
+            "This bot is a *private fork* of DittoBOT made by ``.skylarr.``. Please check out DittoBOT for a (much better) experience!\n\n**Invite Link**: https://discord.com/api/oauth2/authorize?client_id=1000125868938633297&permissions=277025778752&scope=bot%20applications.commands"
         )
         embed = discord.Embed(
             title="Thank you for registering!", description=message, color=0xFFB6C1
         )
-        # embed.add_field(
-        #     name="Follow us on Social Media for fun events and rewards!",
-        #     value="`Reddit`: https://www.reddit.com/r/Mewbot/\n`Instagram`: https://www.instagram.com/mewbot_official/\n`Twitter`: https://twitter.com/MewbotOS",
-        # )
         embed.add_field(
             name="How to get Redeems",
             value="Get 1 Redeem and 15,000 Credits for 5 Upvote Points!",
@@ -123,10 +118,7 @@ class Start(commands.Cog):
             name="The most unique Pokemon experience on discord!",
             value="We are the only Pokemon Bot with Status, Weather, Setup Moves, Secondary effects and Every Pokemon **Form** working in 6v6 player vs player duels!",
         )
-        embed.set_image(
-            url="http://images.mewbot.me/Lychee/uploads/big/1013506636007cf754eb26d32a91a312.png"
-        )
-        await self.bot.get_partial_messageable(1024348479067279390).send(
+        await self.bot.get_partial_messageable(os.environ["LOGS"]).send(
             f"{ctx.author} (`{ctx.author.id}`) has started **DittoBOT** using `/start` (**{starter}**)"
         )
         with contextlib.suppress(discord.Forbidden):

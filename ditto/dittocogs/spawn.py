@@ -435,6 +435,8 @@ class Spawn(commands.Cog):
                 embed.set_image(url="https://skylarr1227.github.io/images/" + pokeurl)
         except Exception:
             return
+        
+        embed.set_footer(text="This bot is a *private fork* of DittoBOT made by ``.skylarr.``. Please check out DittoBOT for a (much better) experience (.gg/ditto)")
 
         if self.modal_view:
            try:

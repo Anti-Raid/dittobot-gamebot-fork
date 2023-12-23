@@ -1,3 +1,5 @@
+**Fork of dittobot by ``.skylarr.`` for Anti-Raid**
+
 ## Support Server
 https://discord.gg/ditto
 

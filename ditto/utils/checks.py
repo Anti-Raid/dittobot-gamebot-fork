@@ -28,22 +28,13 @@ class Rank(IntEnum):
 # Any ID in this tuple will always be able to use commands, regardless of rank or DB status.
 # Be careful adding IDs to this tuple, as they get access to a large number of commands.
 OWNER_IDS = (
-    790722073248661525,
-    #101118549958877184,
-    318844987464876034,
-    749299865334448249,
-    150319814836092928,
-    104265011714592768,
+    728871946456137770,
+    564164277251080208
 )
 OWNER_ID_LIST = [
-    790722073248661525,
-    #101118549958877184,
-    318844987464876034,
-    749299865334448249,
-    150319814836092928,
-    104265011714592768,
+    728871946456137770,
+    564164277251080208
 ]
-# Sky, KT, Earl, Cru, Chi, Motzumoto#9773
 
 
 def check_owner():

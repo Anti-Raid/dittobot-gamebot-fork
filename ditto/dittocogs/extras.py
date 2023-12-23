@@ -351,13 +351,13 @@ class Extras(commands.Cog):
         if not toggle:
             async with ctx.bot.db[0].acquire() as pconn:
                 await pconn.execute(
-                    "UPDATE users SET show_donations = False WHERE u_id = $1", ctx.author.id
+                    "UPDATE users SET show_donations = false WHERE u_id = $1", ctx.author.id
                 )
             await ctx.send("Your donations total will no longer show on your balance.")
         else:
             async with ctx.bot.db[0].acquire() as pconn:
                 await pconn.execute(
-                    "UPDATE users SET show_donations = True WHERE u_id = $1", ctx.author.id
+                    "UPDATE users SET show_donations = true WHERE u_id = $1", ctx.author.id
                 )
             await ctx.send("Your donations total will now show on your balance.")
 
@@ -1016,9 +1016,6 @@ class Extras(commands.Cog):
             details = await tconn.fetchrow(
                 "SELECT * FROM users WHERE u_id = $1", user.id
             )
-            donations = await tconn.fetchrow(
-                "SELECT sum(amount) as total FROM ditto_donations WHERE u_id = $1", user.id
-            )
             if details is None:
                 await ctx.send(f"{user.name} has not started!")
                 return
@@ -1034,7 +1031,7 @@ class Extras(commands.Cog):
             if details["show_donations"] == False:
                 donated_total = "Hidden"
             else:
-                donated_total = donations["total"]
+                donated_total = "Unsupported" # TODO: Add if desired
             if details["last_vote"] < time.time() - (36 * 60 * 60):
                 vote_streak = 0
             else:

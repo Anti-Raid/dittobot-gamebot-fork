@@ -11,7 +11,6 @@ if not os.path.isdir(sys.argv[6]):
 
 if "DIRECTORY" not in os.environ:
     os.environ["DIRECTORY"] = sys.argv[6]
-import pybrake
 import asyncio
 import json
 import logging
@@ -129,12 +128,6 @@ def initialize_logging(cluster_id, cluster_name, logging_code):
     stdout_handler.setFormatter(formatter)
     base_logger.addHandler(stdout_handler)
     dpy_logger.addHandler(stdout_handler)
-
-    notifier = pybrake.Notifier(
-        project_id=your-project-id,
-        project_key="your-airbrake-key-here",
-        environment="production",
-    )
 
     return base_logger
 
