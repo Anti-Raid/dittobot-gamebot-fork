@@ -1,0 +1,45 @@
+dir: mewbot
+override_dir:
+env:
+  - "mewbot/bot.env"
+names: 
+  - Pika
+  - Eevee
+  - Bulbasaur
+  - Squirtle
+  - Blastoise
+  - Lugia
+  - Psyduck
+  - Meowth
+  - Solgareo
+  - Nihilego
+  - Piplip
+  - Snorlax
+  - Torchic
+  - Luvdisc
+  - Pelipper
+  - Charmander
+  - Charizard
+  - Mew
+  - Zamazenta
+  - Eternatus
+module: ditto
+redis: 127.0.0.1:6379
+redis_channel: dittobot_clusters
+interp: /opt/homebrew/bin/python3.10
+
+# WEBUI
+allowed_ids:
+  - "563808552288780322"
+  - "455277032625012737"
+
+oauth:
+  client_id: 999908791061594194
+  client_secret: "SECRET HERE"
+  redirect_url: REDIRECT URL HERE
+
+ping_interval: 60 # 120 seconds (for testing, change this)
+
+per_cluster: 10 # Number of shards per cluster, can be overrided using ``PER_CLUSTER`` env var
+
+token: # 
